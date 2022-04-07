@@ -160,3 +160,4 @@ data
 /.idea/
 *.xml
 *.dcm
+result_data/
