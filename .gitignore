@@ -161,3 +161,4 @@ data
 *.xml
 *.dcm
 result_data/
+eye_detector.save/
