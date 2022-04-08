@@ -13,7 +13,7 @@ def remove_ct_noise(img_arr):
     skull_pixel = 100
     black_pixel = -23
 
-    img_arr = np.where(img_arr < black_pixel, black_pixel, img_arr)
+    # img_arr = np.where(img_arr < black_pixel, black_pixel, img_arr)
     # img_arr = np.where(img_arr > skull_pixel, skull_pixel, img_arr)
 
     for i in range(img_arr.shape[0]):
@@ -107,8 +107,8 @@ if __name__ == "__main__":
         patient_dir = patient_dir[0]
         a = patient_dir.split("\\")[-1]
         print(a)
-        # if a != "200125286":
-        #     continue
+        if a != "200298926":
+            continue
 
         HU = np.zeros(80)
 
@@ -116,28 +116,27 @@ if __name__ == "__main__":
         # print(dcm_list)
         # dcm_list = dcm_list[int(dcm_info[idx, 4]) : int(dcm_info[idx, 5])]
 
-        result_df = pd.DataFrame()
         flag = False
         # for j, file in enumerate(reversed(dcm_list)):
         for j, file in enumerate(dcm_list):
             img = sitk.ReadImage(file)
             img_arr = sitk.GetArrayFromImage(img)
             img_arr = remove_ct_noise(img_arr)
-            # print(len(np.unique(img_arr)))
-            if len(np.unique(img_arr)) > 120 and not flag:
-                continue
-
-            if len(np.unique(img_arr)) <= 120 and not flag:
-                print(f"Start index: {j+1}")
-                flag = True
-                pass
-
-            if len(np.unique(img_arr)) <= 120 and flag:
-                pass
-
-            if len(np.unique(img_arr)) > 120 and flag:
-                print(f"Last index: {j}")
-                break
+            print(len(np.unique(img_arr)))
+            # if len(np.unique(img_arr)) > 120 and not flag:
+            #     continue
+            #
+            # if len(np.unique(img_arr)) <= 120 and not flag:
+            #     print(f"Start index: {j+1}")
+            #     flag = True
+            #     pass
+            #
+            # if len(np.unique(img_arr)) <= 120 and flag:
+            #     pass
+            #
+            # if len(np.unique(img_arr)) > 120 and flag:
+            #     print(f"Last index: {j}")
+            #     break
             rm_img = sitk.GetImageFromArray(img_arr)
 
             writer = sitk.ImageFileWriter()
