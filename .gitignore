@@ -162,8 +162,10 @@ data
 *.dcm
 result_data/
 eye_detector.save/
+eye_detector_old.save
 test.py
 test2.py
 exclude.txt
 hu.txt
+hu_old.txt
 model.txt
