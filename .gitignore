@@ -164,3 +164,6 @@ result_data/
 eye_detector.save/
 test.py
 test2.py
+exclude.txt
+hu.txt
+model.txt
