@@ -13,8 +13,10 @@ from eye_detector_util import load_data
 
 def get_train_test_data():
     data, label = load_data()
-    train_x, test_x, train_y, test_y = train_test_split(data, label, shuffle=True)
-
+    # train_x, test_x, train_y, test_y = train_test_split(data, label, shuffle=True)
+    train_x, test_x, train_y, test_y = train_test_split(
+        data, label, shuffle=True, stratify=label
+    )
     return train_x, test_x, train_y, test_y
 
 

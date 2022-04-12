@@ -2,12 +2,15 @@ import pydicom
 import os
 import glob
 import keras
+import pickle
 
 import numpy as np
 import pandas as pd
 
 from skimage import morphology
 from scipy import ndimage
+from scipy.stats import kurtosis, skew
+from pydicom.pixel_data_handlers.util import apply_modality_lut, apply_voi_lut
 
 
 def transform_to_hu(medical_image: pydicom.FileDataset) -> np.ndarray:
@@ -16,6 +19,9 @@ def transform_to_hu(medical_image: pydicom.FileDataset) -> np.ndarray:
     intercept = medical_image.RescaleIntercept
     slope = medical_image.RescaleSlope
     hu_image = image * slope + intercept
+
+    # hu_image = apply_modality_lut(hu_image, medical_image)
+    # hu_image = apply_voi_lut(hu_image, medical_image)
 
     return hu_image
 
@@ -36,8 +42,8 @@ def window_image(
 
 def remove_ct_noise(medical_image: pydicom.FileDataset) -> np.ndarray:
     hu_image = transform_to_hu(medical_image)
-    window_img = window_image(hu_image, 40, 80)
-
+    # window_img = window_image(hu_image, 40, 80)
+    window_img = hu_image
     segmentation = morphology.dilation(window_img, np.ones((5, 5)))
     labels, label_nb = ndimage.label(segmentation)
 
@@ -60,7 +66,7 @@ def remove_ct_noise(medical_image: pydicom.FileDataset) -> np.ndarray:
 def get_eye_detect(model, data):
     result = model.predict(data)
 
-    return [1 if x[0] > 0.6 else 0 for x in result]
+    return [1 if x[0] > 0.5 else 0 for x in result]
 
 
 if __name__ == "__main__":
@@ -79,27 +85,40 @@ if __name__ == "__main__":
     model = keras.models.load_model("eye_detector.save")
     model.compile(loss="mean_squared_error", optimizer="sgd", metrics=["acc"])
 
-    HUS = dict()
+    try:
+        with open("hu.txt", "rb") as f:
+            HUS = pickle.load(f).get("HUS")
+        #     HUS = HUS[:-2]
+        #
+        # with open("hu.txt", "wb") as f:
+        #     pickle.dump({"HUS": HUS}, f)
+    except:
+        HUS = []
 
+    hosp_ids = []
+    skewness_ = []
+    kurtosis_ = []
+    # mu = []
+
+    file_flag = False
     for idx in range(len(dcm_info)):
         patient_num = str(dcm_info[idx, 1])
         patient_dir = [dir for dir in data_sets if patient_num in dir]
         patient_dir = patient_dir[0]
 
         a = patient_dir.split("\\")[-1]
+        hosp_ids.append(a)
 
-        if a == "110039477":
-            pass
+        if a == "000006247":
+            file_flag = True
 
-        else:
+        if not file_flag:
             continue
 
-        print(a)
+        print(f"hosp_id: {a}")
+
         HU = np.zeros(80)
-
         dcm_list = glob.glob(patient_dir + "/*.dcm")
-
-        flag = False
 
         dcms = []
 
@@ -111,14 +130,43 @@ if __name__ == "__main__":
             dcms.append(masked_image)
 
         eye_result = get_eye_detect(model, data=np.stack(dcms))
-        for k, img in enumerate(reversed(dcms)):
-            if eye_result[len(dcms) - k - 1] == 1:
-                break
+
+        flag = False
+        # for k, img in enumerate(reversed(dcms)):
+        for k, img in enumerate(dcms):
+            # if eye_result[len(dcms) - k - 1] == 1:
+            #     print(f"break at {len(dcms) - k}")
+            #     break
+
+            if eye_result[k] == 0 and not flag:
+                print(f"starts at {k+1}")
+                flag = True
+
+            if not flag:
+                continue
+
             for i in range(0, 80):
                 HU[i] += img.flatten().tolist().count(i)
 
-        print(HU)
-        HUS[idx] = HU
+        HUS.append(HU)
+        with open("hu.txt", "wb") as f:
+            pickle.dump({"HUS": HUS}, f)
 
-    df = pd.DataFrame(HUS).T
-    df.to_excel(os.path.join(save_path, "HU_list.xlsx"), index=False)
+    for hu in HUS:
+        skewness_.append(skew(hu))
+        kurtosis_.append(kurtosis(hu, fisher=True))
+        # mu.append(np.mean(hu))
+
+    results = {
+        "hosp_id": hosp_ids,
+        "skewness": skewness_,
+        "kurtosis": kurtosis_,
+        # "Mu": mu,
+    }
+
+    for i in range(0, 80):
+        results["HU" + str(i)] = list(map(lambda h: h[i], HUS))
+
+    # print(results)
+    df = pd.DataFrame(results)
+    df.to_excel(os.path.join(save_path, "HU_list.xlsx"), header=True, index=None)
