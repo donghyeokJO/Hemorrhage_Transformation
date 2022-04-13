@@ -10,7 +10,6 @@ import pandas as pd
 from skimage import morphology
 from scipy import ndimage
 from scipy.stats import kurtosis, skew
-from pydicom.pixel_data_handlers.util import apply_modality_lut, apply_voi_lut
 
 
 def transform_to_hu(medical_image: pydicom.FileDataset) -> np.ndarray:
