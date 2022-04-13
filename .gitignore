@@ -169,3 +169,5 @@ exclude.txt
 hu.txt
 hu_old.txt
 model.txt
+model_catboost.txt
+catboost_info/
