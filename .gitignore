@@ -170,4 +170,5 @@ hu.txt
 hu_old.txt
 model.txt
 model_catboost.txt
+model_lightgbm.txt
 catboost_info/
