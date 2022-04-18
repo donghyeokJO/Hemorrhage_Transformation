@@ -172,3 +172,4 @@ model.txt
 model_catboost.txt
 model_lightgbm.txt
 catboost_info/
+*.ipynb
