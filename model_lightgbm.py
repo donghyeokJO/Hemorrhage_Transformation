@@ -21,7 +21,18 @@ class LightGBM:
         self.data = data
         self.label = labels
 
-        self.model = LGBMClassifier()
+        self.model = LGBMClassifier(
+            n_estimators=200,
+            max_depth=4,
+            objective="binary",
+            learning_rate=0.12,
+            reg_alpha=12.2,
+            colsample_bytree=0.8,
+            min_child_samples=20,
+            min_child_weight=1e-5,
+            subsample_freq=10,
+            subsample=0.8,
+        )
         self.kfold = StratifiedKFold(n_splits=10)
         self.cv_accuracy = []
         self.tpers = []
@@ -66,6 +77,15 @@ class LightGBM:
 
             self.cv_accuracy.append(accuracy)
 
+            J = tper - fper
+            idx = np.argmax(J)
+            best_threshold = threshold[idx]
+            sens, spec = tper[idx], 1 - fper[idx]
+            print(
+                "%d-Fold Best threshold = %.3f, Sensitivity = %.3f, Specificity = %.3f"
+                % (n_iter, best_threshold, sens, spec)
+            )
+
         print(f"평균 검증 정확도 : {np.mean(self.cv_accuracy)}")
 
         plt.plot([0, 1], [0, 1], linestyle="--", lw=2, color="black")
@@ -102,6 +122,31 @@ class LightGBM:
                 pickle.dump({"model": self.model, "accuracy": mean_auc}, f)
             print("best updated!")
 
+    def feature_importance(self):
+        feature_importance = self.model.feature_importances_
+
+        feature_importance_dict = {}
+        feature_importance_dict2 = {}
+        for idx, im in enumerate(feature_importance):
+            if "HU" in self.data.columns[idx]:
+                feature_importance_dict[self.data.columns[idx]] = im
+            print(f"{self.data.columns[idx]}: {im}")
+            feature_importance_dict2[self.data.columns[idx]] = im
+
+        print(
+            sorted(feature_importance_dict2.items(), key=lambda x: x[1], reverse=True)
+        )
+
+        # x = [i for i in range(0, 80)]
+        x = feature_importance_dict.keys()
+        y = feature_importance_dict.values()
+        # fig = plt.figure(figsize=[12, 12])
+        plt.plot(x, y, color="red", alpha=0.3)
+        plt.xlabel("HU")
+        plt.ylabel("Feature Importance")
+        plt.title("Feature Importance - LightGBM")
+        plt.show()
+
 
 warnings.filterwarnings("ignore")
 
@@ -109,3 +154,4 @@ if __name__ == "__main__":
     data, label = load_data()
     lgbm = LightGBM(data, label)
     lgbm.train()
+    lgbm.feature_importance()

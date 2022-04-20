@@ -21,7 +21,12 @@ class CatBoost:
         self.data = data
         self.label = labels
 
-        self.model = CatBoostClassifier()
+        self.model = CatBoostClassifier(
+            learning_rate=0.001,
+            reg_lambda=1,
+            random_state=1011101,
+            subsample=0.5,
+        )
         self.kfold = StratifiedKFold(n_splits=10)
         self.cv_accuracy = []
         self.tpers = []
@@ -66,6 +71,15 @@ class CatBoost:
 
             self.cv_accuracy.append(accuracy)
 
+            J = tper - fper
+            idx = np.argmax(J)
+            best_threshold = threshold[idx]
+            sens, spec = tper[idx], 1 - fper[idx]
+            print(
+                "%d-Fold Best threshold = %.3f, Sensitivity = %.3f, Specificity = %.3f"
+                % (n_iter, best_threshold, sens, spec)
+            )
+
         print(f"평균 검증 정확도 : {np.mean(self.cv_accuracy)}")
 
         plt.plot([0, 1], [0, 1], linestyle="--", lw=2, color="black")
@@ -93,7 +107,7 @@ class CatBoost:
         print(f"current best: {accuracy}")
         plt.xlabel("False Positive Rate")
         plt.ylabel("True Positive Rate")
-        plt.title("ROC")
+        plt.title("ROC - CatBoost")
         plt.legend(loc="lower right")
         plt.show()
 
@@ -102,6 +116,33 @@ class CatBoost:
                 pickle.dump({"model": self.model, "accuracy": mean_auc}, f)
             print("best updated!")
 
+    def feature_importance(self):
+        feature_importance = self.model.feature_importances_
+
+        feature_importance_dict = {}
+        feature_importance_dict2 = {}
+
+        for idx, im in enumerate(feature_importance):
+            if "HU" in self.data.columns[idx]:
+                feature_importance_dict[self.data.columns[idx]] = im
+            print(f"{self.data.columns[idx]}: {im}")
+            feature_importance_dict2[self.data.columns[idx]] = im
+
+        print(
+            sorted(feature_importance_dict2.items(), key=lambda x: x[1], reverse=True)
+        )
+
+        # x = feature_importance_dict.keys()
+        x = [i for i in range(0, 80)]
+        y = feature_importance_dict.values()
+
+        # fig = plt.figure(figsize=[12, 12])
+        plt.plot(x, y, color="red", alpha=0.3)
+        plt.xlabel("HU")
+        plt.ylabel("Feature Importance")
+        plt.title("Feature Importance - CatBoost")
+        plt.show()
+
 
 warnings.filterwarnings("ignore")
 
@@ -109,3 +150,4 @@ if __name__ == "__main__":
     data, label = load_data()
     cat = CatBoost(data, label)
     cat.train()
+    cat.feature_importance()

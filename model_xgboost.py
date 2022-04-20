@@ -1,36 +1,42 @@
 import pickle
 import warnings
+import random
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import xgboost
 
 from sklearn.model_selection import StratifiedKFold
 from sklearn.feature_selection import RFE
 from sklearn.metrics import accuracy_score, roc_curve, auc
 from xgboost import XGBClassifier
 from data_load import load_data
-from plot_roc import plot_roc_curve
+from constants import *
 
 
 class XGBoost:
+    data: pd.DataFrame
+    label: pd.DataFrame
     model: XGBClassifier
+    kfold: StratifiedKFold
+    rfe: RFE
 
-    def __init__(self, data: pd.DataFrame, label: pd.DataFrame):
+    def __init__(self, data: pd.DataFrame, label: pd.DataFrame, random_seed: int):
         self.data = data
         self.label = label
+
+        # self.data = self.data.loc[:, self.data.columns.isin(selected_columns)]
 
         self.model = XGBClassifier(
             n_estimators=300,
             n_jobs=4,
-            gamma=1.5,
-            subsample=0.8,
+            gamma=0.02,
+            subsample=0.6,
             colsample_bytree=0.9,
             colsample_bylevel=0.9,
-            reg_lambda=0.3,
-            random_state=1823346,
-            learning_rate=0.01,
+            reg_lambda=1,
+            random_state=random_seed,
+            learning_rate=0.014,
             min_child_weight=10,
         )
         self.kfold = StratifiedKFold(n_splits=10)
@@ -41,8 +47,8 @@ class XGBoost:
         self.aucs = []
 
     def feature_selection(self):
-        rfe = RFE(self.model, n_features_to_select=25)
-        rfe.fit(self.data, self.label)
+        rfe = RFE(self.model, n_features_to_select=20, verbose=True)
+        rfe.fit(self.data, self.label, eval_metric="auc")
 
         self.selected_columns = [
             col_nm for idx, col_nm in enumerate(self.data.columns) if rfe.support_[idx]
@@ -71,6 +77,7 @@ class XGBoost:
             fper, tper, threshold = roc_curve(
                 self.label.iloc[test_idx].values.ravel(), fold_pred_proba
             )
+
             self.tpers.append(np.interp(mean_fpr, fper, tper))
             roc_auc = auc(fper, tper)
             self.aucs.append(roc_auc)
@@ -84,6 +91,16 @@ class XGBoost:
                 alpha=0.3,
                 label="ROC fold %d (AUC = %.2f)" % (n_iter, roc_auc),
             )
+
+            J = tper - fper
+            idx = np.argmax(J)
+            best_threshold = threshold[idx]
+            sens, spec = tper[idx], 1 - fper[idx]
+            print(
+                "%d-Fold Best threshold = %.3f, Sensitivity = %.3f, Specificity = %.3f"
+                % (n_iter, best_threshold, sens, spec)
+            )
+
             accuracy = np.round(accuracy_score(y_test, fold_pred), 4)
             print(f"{n_iter}-fold 교차검증 정확도 : {accuracy}, 학습 정확도 : {fold_pred_train}")
 
@@ -128,18 +145,38 @@ class XGBoost:
                 pickle.dump({"model": self.model, "accuracy": mean_auc}, f)
             print("best updated!")
 
+        return mean_auc
+
     def feature_importance(self):
         feature_importance = self.model.feature_importances_
-        print("*********importance************")
+
+        feature_importance_dict = {}
+        feature_importance_dict2 = {}
         for idx, im in enumerate(feature_importance):
-            print(f"{self.data.columns[idx]} : {im}")
+            if "HU" in self.data.columns[idx]:
+                feature_importance_dict[self.data.columns[idx]] = im
+            feature_importance_dict2[self.data.columns[idx]] = im
+
+        print(
+            sorted(feature_importance_dict2.items(), key=lambda x: x[1], reverse=True)
+        )
+
+        # x = [i for i in range(0, 80)]
+        x = feature_importance_dict.keys()
+        y = feature_importance_dict.values()
+        # fig = plt.figure(figsize=[12, 12])
+        plt.plot(x, y, color="red", alpha=0.3)
+        plt.xlabel("HU")
+        plt.ylabel("Feature Importance")
+        plt.title("Feature Importance - XGBoost")
+        plt.show()
 
 
 warnings.filterwarnings("ignore")
 
 if __name__ == "__main__":
     data, label = load_data()
-    xgb = XGBoost(data, label)
+    xgb = XGBoost(data, label, 8501372767)
     xgb.train()
-    # xgb.feature_importance()
+    xgb.feature_importance()
     # xgb.feature_selection()

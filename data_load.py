@@ -62,6 +62,37 @@ def pca_data(new_dataset: pd.DataFrame) -> pd.DataFrame:
     return new_dataset
 
 
+def pca_data_segmented(new_dataset: pd.DataFrame) -> pd.DataFrame:
+    hu_col1 = ["HU" + str(x) for x in range(0, 16)]
+    hu_col2 = ["HU" + str(x) for x in range(16, 40)]
+    hu_col3 = ["HU" + str(x) for x in range(40, 80)]
+
+    hu_df1 = new_dataset.loc[:, new_dataset.columns.isin(hu_col1)]
+    hu_df2 = new_dataset.loc[:, new_dataset.columns.isin(hu_col2)]
+    hu_df3 = new_dataset.loc[:, new_dataset.columns.isin(hu_col3)]
+
+    pca1 = PCA(n_components=1)
+    pca2 = PCA(n_components=2)
+    pca3 = PCA(n_components=2)
+
+    hu_df1_principal = pca1.fit_transform(hu_df1)
+    hu_df2_principal = pca2.fit_transform(hu_df2)
+    hu_df3_principal = pca3.fit_transform(hu_df3)
+
+    new_dataset.insert(0, "HU_SEG1", hu_df1_principal)
+
+    new_dataset.insert(1, "HU_SEG2_1", hu_df2_principal[:, 0])
+    new_dataset.insert(2, "HU_SEG2_2", hu_df2_principal[:, 1])
+    new_dataset.insert(3, "HU_SEG3_1", hu_df3_principal[:, 0])
+    new_dataset.insert(4, "HU_SEG3_2", hu_df3_principal[:, 1])
+
+    new_dataset.drop(hu_col1, axis=1, inplace=True)
+    new_dataset.drop(hu_col2, axis=1, inplace=True)
+    new_dataset.drop(hu_col3, axis=1, inplace=True)
+
+    return new_dataset
+
+
 def load_data() -> tuple[pd.DataFrame, pd.DataFrame]:
     data1 = load_excel_data()
     data2 = load_hu_data()
@@ -79,7 +110,7 @@ def load_data() -> tuple[pd.DataFrame, pd.DataFrame]:
         index=new_dataset.index,
     )
 
-    # new_dataset = pca_data(new_dataset)
+    new_dataset = pca_data_segmented(new_dataset)
 
     return new_dataset, labels
 
@@ -204,8 +235,8 @@ def t_test():
 
 
 if __name__ == "__main__":
-    t_test()
+    # t_test()
     # hu_distribution()
-    # data, label = load_data()
-    # print(data)
+    data, label = load_data()
+    print(data.shape)
     # print(label)
