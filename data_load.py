@@ -111,7 +111,7 @@ def load_data() -> tuple[pd.DataFrame, pd.DataFrame]:
     )
 
     new_dataset = pca_data_segmented(new_dataset)
-
+    new_dataset = new_dataset.fillna(0)
     return new_dataset, labels
 
 
@@ -238,5 +238,7 @@ if __name__ == "__main__":
     # t_test()
     # hu_distribution()
     data, label = load_data()
-    print(data.shape)
+    print(np.where(label == np.inf))
+    print(np.where(np.isnan(data)))
+    # print(np.all(np.isfinite(data)))
     # print(label)
