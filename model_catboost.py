@@ -71,14 +71,14 @@ class CatBoost:
 
             self.cv_accuracy.append(accuracy)
 
-            J = tper - fper
-            idx = np.argmax(J)
-            best_threshold = threshold[idx]
-            sens, spec = tper[idx], 1 - fper[idx]
-            print(
-                "%d-Fold Best threshold = %.3f, Sensitivity = %.3f, Specificity = %.3f"
-                % (n_iter, best_threshold, sens, spec)
-            )
+            # J = tper - fper
+            # idx = np.argmax(J)
+            # best_threshold = threshold[idx]
+            # sens, spec = tper[idx], 1 - fper[idx]
+            # print(
+            #     "%d-Fold Best threshold = %.3f, Sensitivity = %.3f, Specificity = %.3f"
+            #     % (n_iter, best_threshold, sens, spec)
+            # )
 
         print(f"평균 검증 정확도 : {np.mean(self.cv_accuracy)}")
 
@@ -88,6 +88,20 @@ class CatBoost:
         mean_auc = auc(mean_fpr, mean_tpr)
 
         print(f"평균 AUC : {mean_auc}")
+        import math
+
+        print(np.mean(self.aucs))
+        std = np.std(self.aucs)
+        upper = mean_auc + 1.96 * std / math.sqrt(10)
+        lower = mean_auc - 1.96 * std / math.sqrt(10)
+        print(f"upper: {upper}, lower: {lower} (95% CI)")
+
+        std_mean = np.std(self.cv_accuracy)
+
+        upper = np.mean(self.cv_accuracy) + 1.96 * std_mean / math.sqrt(10)
+        lower = np.mean(self.cv_accuracy) - 1.96 * std_mean / math.sqrt(10)
+
+        print(f"학습 정확도 upper: {upper}, lower: {lower} (95% CI)")
 
         plt.plot(
             mean_fpr,
@@ -111,10 +125,10 @@ class CatBoost:
         plt.legend(loc="lower right")
         plt.show()
 
-        if mean_auc > accuracy:
-            with open("model_catboost.txt", "wb") as f:
-                pickle.dump({"model": self.model, "accuracy": mean_auc}, f)
-            print("best updated!")
+        # if mean_auc > accuracy:
+        #     with open("model_catboost.txt", "wb") as f:
+        #         pickle.dump({"model": self.model, "accuracy": mean_auc}, f)
+        #     print("best updated!")
 
     def feature_importance(self):
         feature_importance = self.model.feature_importances_
@@ -143,11 +157,17 @@ class CatBoost:
         plt.title("Feature Importance - CatBoost")
         plt.show()
 
+    @staticmethod
+    def test():
+        with open("model_catboost.txt", "rb") as f:
+            model = pickle.load(f).get("model")
+
 
 warnings.filterwarnings("ignore")
 
 if __name__ == "__main__":
     data, label = load_data()
     cat = CatBoost(data, label)
-    cat.train()
-    cat.feature_importance()
+    # cat.train()
+    cat.test()
+    # cat.feature_importance()

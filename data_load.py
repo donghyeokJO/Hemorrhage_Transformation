@@ -12,6 +12,7 @@ from scipy.stats import ttest_ind
 
 def load_excel_data(data_path: str = "data/patient.xlsx") -> pd.DataFrame:
     dataset = pd.read_excel(data_path)
+
     dataset = dataset.astype({"hosp_id": "str"})
     dataset = dataset.set_index(["hosp_id"])
 
@@ -20,6 +21,7 @@ def load_excel_data(data_path: str = "data/patient.xlsx") -> pd.DataFrame:
         "Tube current",
         "Tube voltage",
         "dis_mrs",
+        # "HTf",
         "iv_start",
         "ia_start",
         "ia_end",
@@ -28,7 +30,7 @@ def load_excel_data(data_path: str = "data/patient.xlsx") -> pd.DataFrame:
         "reg_num",
     ]
 
-    dataset.drop(drop_columns, axis=1, inplace=True)
+    dataset.drop(drop_columns, axis=1, inplace=True, errors="ignore")
 
     return dataset
 
@@ -93,13 +95,19 @@ def pca_data_segmented(new_dataset: pd.DataFrame) -> pd.DataFrame:
     return new_dataset
 
 
-def load_data() -> tuple[pd.DataFrame, pd.DataFrame]:
-    data1 = load_excel_data()
-    data2 = load_hu_data()
+def load_data(
+    excel_path: str = "data/patient.xlsx", data_path: str = "result_data/HU_list.xlsx"
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    data1 = load_excel_data(excel_path)
+    data2 = load_hu_data(data_path)
 
     new_dataset = pd.concat([data1, data2], axis=1)
     labels = pd.DataFrame(new_dataset.loc[:, ["HTf"]])
+    # labels = pd.DataFrame(new_dataset.loc[:, ["dis_mrs"]])
+    # for idx, row in labels.iterrows():
+    #     row[0] = 0 if row[0] <= 2 else 1
     new_dataset.drop(["HTf"], axis=1, inplace=True)
+    # new_dataset.drop(["dis_mrs"], axis=1, inplace=True)
     columns = new_dataset.columns
 
     scaler = MinMaxScaler()
@@ -110,8 +118,38 @@ def load_data() -> tuple[pd.DataFrame, pd.DataFrame]:
         index=new_dataset.index,
     )
 
-    new_dataset = pca_data_segmented(new_dataset)
-    new_dataset = new_dataset.fillna(0)
+    # new_dataset = pca_data_segmented(new_dataset)
+    # new_dataset = new_dataset.fillna(0)
+    return new_dataset, labels
+
+
+def load_data_new(excel_path: str = "data/patient_new.xlsx", data_path=None):
+    if data_path is None:
+        data_path = [
+            "result_data/HU_gms.xlsx",
+            "result_data/HU_philips.xlsx",
+            "result_data/HU_toshiba.xlsx",
+        ]
+    excel_data = load_excel_data(excel_path)
+
+    data_0 = load_hu_data(data_path[0])
+    data_1 = load_hu_data(data_path[1])
+    data_2 = load_hu_data(data_path[2])
+
+    dataset = pd.concat([data_0, data_1, data_2], axis=0)
+    labels = pd.DataFrame(dataset.loc[:, ["HTf"]])
+
+    dataset.drop(["HTf"], axis=1, inplace=True)
+    columns = dataset.columns
+
+    scaler = MinMaxScaler()
+
+    new_dataset = pd.DataFrame(
+        scaler.fit_transform(dataset),
+        columns=columns,
+        index=dataset.index,
+    )
+
     return new_dataset, labels
 
 
@@ -237,8 +275,10 @@ def t_test():
 if __name__ == "__main__":
     # t_test()
     # hu_distribution()
-    data, label = load_data()
-    print(np.where(label == np.inf))
-    print(np.where(np.isnan(data)))
+    # data, label = load_data()
+    data, label = load_data_new()
+    # print(np.where(label == np.inf))
+    # print(np.where(np.isnan(data)))
     # print(np.all(np.isfinite(data)))
-    # print(label)
+    print(data)
+    print(label)
