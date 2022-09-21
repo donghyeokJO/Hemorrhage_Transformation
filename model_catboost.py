@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score, roc_curve, auc
 from catboost import CatBoostClassifier
-from data_load import load_data
+from data_load import load_data, load_data_new
 
 
 class CatBoost:
@@ -17,9 +17,8 @@ class CatBoost:
     model: CatBoostClassifier
     kfold: StratifiedKFold
 
-    def __init__(self, data: pd.DataFrame, labels: pd.DataFrame):
-        self.data = data
-        self.label = labels
+    def __init__(self, pca: bool):
+        self.data, self.label = load_data(pca=pca)
 
         self.model = CatBoostClassifier(
             learning_rate=0.001,
@@ -32,6 +31,7 @@ class CatBoost:
         self.tpers = []
         self.fpers = []
         self.aucs = []
+        self.pca = pca
 
     def train(self):
         n_iter = 0
@@ -113,8 +113,13 @@ class CatBoost:
         )
 
         try:
-            with open("model_catboost.txt", "rb") as f:
-                accuracy = pickle.load(f).get("accuracy")
+            if self.pca:
+                with open("model_catboost_pca.txt", "rb") as f:
+                    accuracy = pickle.load(f).get("accuracy")
+            else:
+                with open("model_catboost.txt", "rb") as f:
+                    accuracy = pickle.load(f).get("accuracy")
+
         except:
             accuracy = -1
 
@@ -125,10 +130,15 @@ class CatBoost:
         plt.legend(loc="lower right")
         plt.show()
 
-        # if mean_auc > accuracy:
-        #     with open("model_catboost.txt", "wb") as f:
-        #         pickle.dump({"model": self.model, "accuracy": mean_auc}, f)
-        #     print("best updated!")
+        if mean_auc > accuracy:
+            if self.pca:
+                with open("model_catboost_pca.txt", "wb") as f:
+                    pickle.dump({"model": self.model, "accuracy": mean_auc}, f)
+            else:
+                with open("model_catboost.txt", "wb") as f:
+                    pickle.dump({"model": self.model, "accuracy": mean_auc}, f)
+
+            print("best updated!")
 
     def feature_importance(self):
         feature_importance = self.model.feature_importances_
@@ -157,17 +167,34 @@ class CatBoost:
         plt.title("Feature Importance - CatBoost")
         plt.show()
 
-    @staticmethod
-    def test():
-        with open("model_catboost.txt", "rb") as f:
-            model = pickle.load(f).get("model")
+    def test(self):
+        print("********** Test Phase **********")
+        if self.pca:
+            with open("model_catboost_pca.txt", "rb") as f:
+                model = pickle.load(f).get("model")
+
+        else:
+            with open("model_catboost.txt", "rb") as f:
+                model = pickle.load(f).get("model")
+
+        test_data, test_label = load_data_new(pca=self.pca)
+        predict_ = model.predict(test_data)
+        accuracy = np.round(accuracy_score(test_label, predict_), 4)
+        print(f"정확도: {accuracy}")
+
+        pred_proba = model.predict_proba(test_data)[:, 1]
+
+        fper, tper, threshold = roc_curve(test_label.values.ravel(), pred_proba)
+
+        auc_score = auc(fper, tper)
+
+        print(f"평균 AUC : {auc_score}")
 
 
 warnings.filterwarnings("ignore")
 
 if __name__ == "__main__":
-    data, label = load_data()
-    cat = CatBoost(data, label)
-    # cat.train()
+    cat = CatBoost(pca=True)
+    cat.train()
     cat.test()
     # cat.feature_importance()

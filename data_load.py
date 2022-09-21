@@ -96,7 +96,9 @@ def pca_data_segmented(new_dataset: pd.DataFrame) -> pd.DataFrame:
 
 
 def load_data(
-    excel_path: str = "data/patient.xlsx", data_path: str = "result_data/HU_list.xlsx"
+    excel_path: str = "data/patient.xlsx",
+    data_path: str = "result_data/HU_list.xlsx",
+    pca: bool = True,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     data1 = load_excel_data(excel_path)
     data2 = load_hu_data(data_path)
@@ -118,12 +120,16 @@ def load_data(
         index=new_dataset.index,
     )
 
-    # new_dataset = pca_data_segmented(new_dataset)
-    # new_dataset = new_dataset.fillna(0)
+    if pca:
+        new_dataset = pca_data_segmented(new_dataset)
+        new_dataset = new_dataset.fillna(0)
+
     return new_dataset, labels
 
 
-def load_data_new(excel_path: str = "data/patient_new.xlsx", data_path=None):
+def load_data_new(
+    excel_path: str = "data/patient_new.xlsx", data_path=None, pca: bool = True
+):
     if data_path is None:
         data_path = [
             "result_data/HU_gms.xlsx",
@@ -137,6 +143,17 @@ def load_data_new(excel_path: str = "data/patient_new.xlsx", data_path=None):
     data_2 = load_hu_data(data_path[2])
 
     dataset = pd.concat([data_0, data_1, data_2], axis=0)
+    # remove name in hosp_ids
+    old_index = dataset.index
+    new_index = list(map(lambda x: x.split()[0], old_index))
+    dataset.index = new_index
+
+    # match index size
+    excel_index = excel_data.index
+    new_excel_index = list(map(lambda x: "0" * (9 - len(x)) + x, excel_index))
+    excel_data.index = new_excel_index
+
+    dataset = pd.concat([excel_data, dataset], axis=1)
     labels = pd.DataFrame(dataset.loc[:, ["HTf"]])
 
     dataset.drop(["HTf"], axis=1, inplace=True)
@@ -149,6 +166,10 @@ def load_data_new(excel_path: str = "data/patient_new.xlsx", data_path=None):
         columns=columns,
         index=dataset.index,
     )
+
+    if pca:
+        new_dataset = pca_data_segmented(new_dataset)
+        new_dataset = new_dataset.fillna(0)
 
     return new_dataset, labels
 
@@ -280,5 +301,6 @@ if __name__ == "__main__":
     # print(np.where(label == np.inf))
     # print(np.where(np.isnan(data)))
     # print(np.all(np.isfinite(data)))
+
     print(data)
     print(label)

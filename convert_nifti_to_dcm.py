@@ -49,7 +49,8 @@ def remove_ct_noise(medical_image: pydicom.FileDataset, image) -> np.ndarray:
 
 if __name__ == "__main__":
     # multi producer
-    producers = ["gms", "philips", "toshiba"]
+    # producers = ["gms", "philips", "toshiba"]
+    producers = ["toshiba"]
     dir = os.path.dirname(os.path.realpath("__file__"))
 
     # data_dir = os.path.join(dir, "predictions")
