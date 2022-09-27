@@ -28,6 +28,8 @@ def load_excel_data(data_path: str = "data/patient.xlsx") -> pd.DataFrame:
         "type_sub",
         "type",
         "reg_num",
+        "kvp",
+        "tubecurrent",
     ]
 
     dataset.drop(drop_columns, axis=1, inplace=True, errors="ignore")
@@ -296,8 +298,8 @@ def t_test():
 if __name__ == "__main__":
     # t_test()
     # hu_distribution()
-    # data, label = load_data()
-    data, label = load_data_new()
+    data, label = load_data(pca=True)
+    data_new, label_new = load_data_new(pca=True)
     # print(np.where(label == np.inf))
     # print(np.where(np.isnan(data)))
     # print(np.all(np.isfinite(data)))

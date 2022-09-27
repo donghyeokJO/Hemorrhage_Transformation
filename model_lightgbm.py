@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score, roc_curve, auc
 from lightgbm import LGBMClassifier
-from data_load import load_data
+from data_load import load_data, load_data_new
 
 
 class LightGBM:
@@ -17,9 +17,9 @@ class LightGBM:
     model: LGBMClassifier
     kfold: StratifiedKFold
 
-    def __init__(self, data: pd.DataFrame, labels: pd.DataFrame):
-        self.data = data
-        self.label = labels
+    def __init__(self, pca: bool):
+        self.data, self.label = load_data(pca=pca)
+        self.pca = pca
 
         self.model = LGBMClassifier(
             n_estimators=200,
@@ -109,18 +109,23 @@ class LightGBM:
         lower = mean_auc - 1.96 * std / math.sqrt(10)
         print(f"upper: {upper}, lower: {lower} (95% CI)")
 
-        plt.plot(
-            mean_fpr,
-            mean_tpr,
-            color="blue",
-            label="Mean ROC (AUC = %0.2f )" % mean_auc,
-            lw=2,
-            alpha=1,
-        )
+        # plt.plot(
+        #     mean_fpr,
+        #     mean_tpr,
+        #     color="blue",
+        #     label="Mean ROC (AUC = %0.2f )" % mean_auc,
+        #     lw=2,
+        #     alpha=1,
+        # )
 
         try:
-            with open("model_lightgbm.txt", "rb") as f:
-                accuracy = pickle.load(f).get("accuracy")
+            if self.pca:
+                with open("model_lightgbm_pca.txt", "rb") as f:
+                    accuracy = pickle.load(f).get("accuracy")
+            else:
+                with open("model_lightgbm.txt", "rb") as f:
+                    accuracy = pickle.load(f).get("accuracy")
+
         except:
             accuracy = -1
 
@@ -131,10 +136,15 @@ class LightGBM:
         plt.legend(loc="lower right")
         plt.show()
 
-        # if mean_auc > accuracy:
-        #     with open("model_lightgbm.txt", "wb") as f:
-        #         pickle.dump({"model": self.model, "accuracy": mean_auc}, f)
-        #     print("best updated!")
+        if mean_auc > accuracy:
+            if self.pca:
+                with open("model_lightgbm_pca.txt", "wb") as f:
+                    pickle.dump({"model": self.model, "accuracy": mean_auc}, f)
+            else:
+                with open("model_lightgbm.txt", "wb") as f:
+                    pickle.dump({"model": self.model, "accuracy": mean_auc}, f)
+
+            print("best updated!")
 
     def feature_importance(self):
         feature_importance = self.model.feature_importances_
@@ -161,11 +171,34 @@ class LightGBM:
         plt.title("Feature Importance - LightGBM")
         plt.show()
 
+    def test(self):
+        print("********** Test Phase **********")
+        if self.pca:
+            with open("model_lightgbm_pca.txt", "rb") as f:
+                model = pickle.load(f).get("model")
+
+        else:
+            with open("model_lightgbm.txt", "rb") as f:
+                model = pickle.load(f).get("model")
+
+        test_data, test_label = load_data_new(pca=self.pca)
+        predict_ = model.predict(test_data)
+        accuracy = np.round(accuracy_score(test_label, predict_), 4)
+        print(f"정확도: {accuracy}")
+
+        pred_proba = model.predict_proba(test_data)[:, 1]
+
+        fper, tper, threshold = roc_curve(test_label.values.ravel(), pred_proba)
+
+        auc_score = auc(fper, tper)
+
+        print(f"평균 AUC : {auc_score}")
+
 
 warnings.filterwarnings("ignore")
 
 if __name__ == "__main__":
-    data, label = load_data()
-    lgbm = LightGBM(data, label)
+    lgbm = LightGBM(pca=False)
     lgbm.train()
+    lgbm.test()
     # lgbm.feature_importance()
