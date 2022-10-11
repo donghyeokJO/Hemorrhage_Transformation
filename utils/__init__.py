@@ -17,7 +17,7 @@ def predication_func(x: pd.DataFrame, y: pd.DataFrame, classify, param):
     kfold = StratifiedKFold(n_splits=10)
 
     pred_list, real_list, prob_list = [], [], []
-
+    # print(param)
     for train_index, test_index in kfold.split(x, y):
         x_train, x_test = x.iloc[train_index], x.iloc[test_index]
         y_train, y_test = y.iloc[train_index], y.iloc[test_index]
@@ -25,6 +25,7 @@ def predication_func(x: pd.DataFrame, y: pd.DataFrame, classify, param):
         clf = classify(**param)
         try:
             clf.fit(x_train, y_train, verbose=False)
+            # clf.fit(x_train, y_train)
         except:
             clf.fit(x_train, y_train)
 
@@ -212,7 +213,7 @@ def fastDeLong_no_weights(predications_sorted_transposed, label_1_count):
 
     k = predications_sorted_transposed.shape[0]
 
-    tx = np.empty([k, m], dtype=np.flaot)
+    tx = np.empty([k, m], dtype=np.float)
     ty = np.empty([k, n], dtype=np.float)
     tz = np.empty([k, m + n], dtype=np.float)
 
@@ -346,6 +347,13 @@ def auc_ci_Delong(y_true, y_scores, alpha=0.95):
 def grid_search_func(x, y, classify, param_grid, save_path):
     best_score = None
     best_parameter = None
+
+    try:
+        with open(save_path, "rb") as f:
+            data = pickle.load(f)
+            best_score = data["best_score_"]
+    except:
+        pass
 
     total_size = len(ParameterGrid(param_grid))
 

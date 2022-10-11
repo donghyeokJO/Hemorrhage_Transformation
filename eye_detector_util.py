@@ -21,7 +21,7 @@ def load_data():
     data_list = []
     label_list = []
 
-    for idx in range(len(dcm_info[:40])):
+    for idx in range(len(dcm_info)):
         patient_num = str(dcm_info[idx, 1])
         patient_dir = [dir for dir in data_sets if patient_num in dir]
         patient_dir = patient_dir[0]

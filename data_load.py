@@ -5,7 +5,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, Normalizer
 from sklearn.decomposition import PCA
 from scipy.stats import ttest_ind
 
@@ -33,6 +33,31 @@ def load_excel_data(data_path: str = "data/patient.xlsx") -> pd.DataFrame:
     ]
 
     dataset.drop(drop_columns, axis=1, inplace=True, errors="ignore")
+
+    return dataset
+
+
+def load_excel_data_with_manufacturer(data_path: str) -> pd.DataFrame:
+    dataset = pd.read_excel(data_path)
+
+    dataset = dataset.astype({"hosp_id: str"})
+    dataset = dataset.set_index(["hosp_id"])
+
+    drop_columns = [
+        "Tube current",
+        "Tube voltage",
+        "dis_mrs",
+        "iv_start",
+        "ia_start",
+        "ia_end",
+        "type_sub",
+        "type",
+        "reg_num",
+        "kvp",
+        "tubecurrent",
+    ]
+
+    dataset.drop(drop_columns, axis=1, inplace=True, erros="ignore")
 
     return dataset
 
@@ -115,6 +140,7 @@ def load_data(
     columns = new_dataset.columns
 
     scaler = MinMaxScaler()
+    # scaler = Normalizer()
 
     new_dataset = pd.DataFrame(
         scaler.fit_transform(new_dataset),
@@ -167,6 +193,46 @@ def load_data_new(
         scaler.fit_transform(dataset),
         columns=columns,
         index=dataset.index,
+    )
+
+    if pca:
+        new_dataset = pca_data_segmented(new_dataset)
+        new_dataset = new_dataset.fillna(0)
+
+    return new_dataset, labels
+
+
+def load_data_philips(
+    excel_path: str = "data/patient_philips.xlsx",
+    data_path: str = "result_data/HU_philips.xlsx",
+    pca: bool = True,
+):
+    data1 = load_excel_data(excel_path)
+    data2 = load_hu_data(data_path)
+
+    old_index = data2.index
+    new_index = list(map(lambda x: x.split()[0], old_index))
+    data2.index = new_index
+
+    # match index size
+    excel_index = data1.index
+    new_excel_index = list(map(lambda x: "0" * (9 - len(x)) + x, excel_index))
+    data1.index = new_excel_index
+
+    new_dataset = pd.concat([data1, data2], axis=1)
+    labels = pd.DataFrame(new_dataset.loc[:, ["HTf"]])
+
+    new_dataset.drop(["HTf"], axis=1, inplace=True)
+
+    columns = new_dataset.columns
+
+    scaler = MinMaxScaler()
+    # scaler = Normalizer()
+
+    new_dataset = pd.DataFrame(
+        scaler.fit_transform(new_dataset),
+        columns=columns,
+        index=new_dataset.index,
     )
 
     if pca:
@@ -300,6 +366,8 @@ if __name__ == "__main__":
     # hu_distribution()
     data, label = load_data(pca=True)
     data_new, label_new = load_data_new(pca=True)
+
+    data_total = pd.concat([data, data_new], axis=0)
     # print(np.where(label == np.inf))
     # print(np.where(np.isnan(data)))
     # print(np.all(np.isfinite(data)))
