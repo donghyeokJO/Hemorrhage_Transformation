@@ -174,3 +174,4 @@ model_lightgbm.txt
 catboost_info/
 *.ipynb
 *.nii.gz
+*.pkl
