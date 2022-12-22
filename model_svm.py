@@ -9,18 +9,13 @@ import matplotlib.pyplot as plt
 from sklearn.svm import SVC
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score, roc_curve, auc
-from data_load import load_data, load_data_philips, load_data_new
+from data_load import load_data, load_data_philips, load_data_new, load_total_data
 from utils import *
 
 
 class SupportVector:
     def __init__(self, pca):
-        self.data, self.label = load_data(pca=pca)
-        self.data_new, self.label_new = load_data_new(pca=pca)
-        self.data_philips, self.label_philips = load_data_philips(pca=pca)
-
-        self.total_data = pd.concat([self.data, self.data_new], axis=0)
-        self.total_label = pd.concat([self.label, self.label_new], axis=0)
+        self.total_data, self.total_label, self.philips_data, self.philips_label, self.siemens_data, self.siemens_label = load_total_data()
         self.pca = pca
 
         self.kfold = StratifiedKFold(n_splits=10)
@@ -40,7 +35,6 @@ class SupportVector:
 
         self.params = {
             "C": [0.001, 0.01, 0.1, 1, 10, 100],
-            "gamma": [0.001, 0.01, 0.1, 1, 10, 100],
             "probability": [True],
         }
 
@@ -161,7 +155,7 @@ class SupportVector:
 
     def train_siemens(self):
         train_data, test_data, train_label, test_label = train_test_split(
-            self.data, self.label, test_size=0.2, random_state=42
+            self.siemens_data, self.siemens_label, test_size=0.2, random_state=42
         )
 
         model = SVC
@@ -388,16 +382,16 @@ class SupportVector:
 warnings.filterwarnings("ignore")
 
 if __name__ == "__main__":
-    cat = SupportVector(pca=True)
-    # print("total")
-    # cat.total_train_fold()
+    cat = SupportVector(pca=False)
+    print("total")
+    cat.total_train_fold()
     print("total_test")
     cat.test_total()
     # print("siemens")
     # cat.train_siemens()
-    print("siemens_test")
-    cat.siemens()
+    # print("siemens_test")
+    # cat.siemens()
     # print("philips")
     # cat.train_philips()
-    print("philips_test")
-    cat.philips()
+    # print("philips_test")
+    # cat.philips()

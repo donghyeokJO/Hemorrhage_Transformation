@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-from sklearn.neural_network import MLPClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score, roc_curve, auc
 from data_load import load_data, load_data_philips, load_data_new, load_total_data
@@ -24,38 +24,30 @@ class ANN:
         self.fpers = []
         self.aucs = []
 
-        self.save_path = "ann_total_train_pca.pkl" if pca else "ann_total_train.pkl"
+        self.save_path = "rf_total_train_pca.pkl" if pca else "rf_total_train.pkl"
 
         self.save_path_siemens = (
-            "ann_siemens_total_train_pca.pkl" if pca else "ann_siemens_total_train.pkl"
+            "rf_siemens_total_train_pca.pkl" if pca else "rf_siemens_total_train.pkl"
         )
         self.save_path_philips = (
-            "ann_philips_total_train_pca.pkl" if pca else "ann_philips_total_train.pkl"
+            "rf_philips_total_train_pca.pkl" if pca else "rf_philips_total_train.pkl"
         )
 
-        self.params = {
-            "hidden_layer_sizes": [100, 120, 140, 160, 180, 200],
-            "activation": ["tanh"],
-            "solver": ["adam"],
-            "learning_rate_init": [0.001, 0.01],
-            "alpha": [0.1, 0.01, 0.001],
-            "early_stopping": [False],
-            "warm_start": [False],
-        }
+        self.params = {'n_estimators' : [100, 200, 500, 1000], 'max_depth' : [10, 15, 20, 50], 'min_samples_leaf' : [8, 12, 18], 'min_samples_split' : [8, 16, 20]}
 
     def total_train_fold(self):
         train_data, test_data, train_label, test_label = train_test_split(
             self.total_data, self.total_label, test_size=0.1, random_state=42
         )
 
-        model = MLPClassifier
+        model = RandomForestClassifier
 
         grid_search_func(train_data, train_label, model, self.params, self.save_path)
 
         with open(self.save_path, "rb") as f:
             info = pickle.load(f)
 
-        model = MLPClassifier(**info.get("best_params_"))
+        model = RandomForestClassifier(**info.get("best_params_"))
         model.fit(train_data, train_label)
 
         pred = model.predict(test_data)
@@ -80,7 +72,7 @@ class ANN:
         with open(self.save_path, "rb") as f:
             info = pickle.load(f)
 
-        model = MLPClassifier(**info.get("best_params_"))
+        model = RandomForestClassifier(**info.get("best_params_"))
         n_iter = 0
         mean_fpr = np.linspace(0, 1, 100)
 
@@ -163,7 +155,7 @@ class ANN:
             self.siemens_data, self.siemens_label, test_size=0.2, random_state=42
         )
 
-        model = MLPClassifier
+        model = RandomForestClassifier
 
         grid_search_func(
             train_data, train_label, model, self.params, self.save_path_siemens
@@ -172,7 +164,7 @@ class ANN:
         with open(self.save_path_siemens, "rb") as f:
             info = pickle.load(f)
 
-        model = MLPClassifier(**info.get("best_params_"))
+        model = RandomForestClassifier(**info.get("best_params_"))
         model.fit(train_data, train_label)
 
         pred = model.predict(test_data)
@@ -199,7 +191,7 @@ class ANN:
             info = pickle.load(f)
 
         print(info.get("best_params_"))
-        model = MLPClassifier(**info.get("best_params_"))
+        model = RandomForestClassifier(**info.get("best_params_"))
 
         for train_idx, test_idx in self.kfold.split(self.siemens_data, self.siemens_label):
             # print(train_idx, test_idx)
@@ -275,7 +267,7 @@ class ANN:
             self.philips_data, self.philips_label, test_size=0.2, random_state=42
         )
 
-        model = MLPClassifier
+        model = RandomForestClassifier
         grid_search_func(
             train_data, train_label, model, self.params, self.save_path_philips
         )
@@ -283,7 +275,7 @@ class ANN:
         with open(self.save_path_philips, "rb") as f:
             info = pickle.load(f)
 
-        model = MLPClassifier(**info.get("best_params_"))
+        model = RandomForestClassifier(**info.get("best_params_"))
         model.fit(train_data, train_label)
 
         pred = model.predict(test_data)
@@ -310,7 +302,7 @@ class ANN:
             info = pickle.load(f)
 
         print(info.get("best_params_"))
-        model = MLPClassifier(**info.get("best_params_"))
+        model = RandomForestClassifier(**info.get("best_params_"))
 
         for train_idx, test_idx in self.kfold.split(
             self.philips_data, self.philips_label

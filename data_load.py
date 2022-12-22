@@ -5,7 +5,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from sklearn.preprocessing import MinMaxScaler, Normalizer
+from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 from sklearn.decomposition import PCA
 from scipy.stats import ttest_ind
 
@@ -17,7 +17,8 @@ def load_excel_data(data_path: str = "data/patient.xlsx") -> pd.DataFrame:
     dataset = dataset.set_index(["hosp_id"])
 
     drop_columns = [
-        "manufacturer",
+        "patient_id",
+        # "manufacturer",
         "Tube current",
         "Tube voltage",
         "dis_mrs",
@@ -30,35 +31,28 @@ def load_excel_data(data_path: str = "data/patient.xlsx") -> pd.DataFrame:
         "reg_num",
         "kvp",
         "tubecurrent",
+        "toast",
+        "hx_str",
+        "hx_htn",
+        "hx_dm",
+        "smok",
+        "hx_af",
+        "hx_hl",
+        "htx_plt",
+        "htx_coa",
+        "htx_htn",
+        "htx_statin",
+        "htx_dm",
+        "tc",
+        "tg",
+        "hdl",
+        "ldl",
+        "fbs",
+        "ha1c",
+        "crp",
     ]
 
     dataset.drop(drop_columns, axis=1, inplace=True, errors="ignore")
-
-    return dataset
-
-
-def load_excel_data_with_manufacturer(data_path: str) -> pd.DataFrame:
-    dataset = pd.read_excel(data_path)
-
-    dataset = dataset.astype({"hosp_id: str"})
-    dataset = dataset.set_index(["hosp_id"])
-
-    drop_columns = [
-        "Tube current",
-        "Tube voltage",
-        "dis_mrs",
-        "iv_start",
-        "ia_start",
-        "ia_end",
-        "type_sub",
-        "type",
-        "reg_num",
-        "kvp",
-        "tubecurrent",
-    ]
-
-    dataset.drop(drop_columns, axis=1, inplace=True, erros="ignore")
-
     return dataset
 
 
@@ -125,38 +119,18 @@ def pca_data_segmented(new_dataset: pd.DataFrame) -> pd.DataFrame:
 def load_data(
     excel_path: str = "data/patient.xlsx",
     data_path: str = "result_data/HU_list.xlsx",
-    pca: bool = True,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+    pca: bool = False,
+) -> pd.DataFrame:
     data1 = load_excel_data(excel_path)
     data2 = load_hu_data(data_path)
 
     new_dataset = pd.concat([data1, data2], axis=1)
-    labels = pd.DataFrame(new_dataset.loc[:, ["HTf"]])
-    # labels = pd.DataFrame(new_dataset.loc[:, ["dis_mrs"]])
-    # for idx, row in labels.iterrows():
-    #     row[0] = 0 if row[0] <= 2 else 1
-    new_dataset.drop(["HTf"], axis=1, inplace=True)
-    # new_dataset.drop(["dis_mrs"], axis=1, inplace=True)
-    columns = new_dataset.columns
 
-    scaler = MinMaxScaler()
-    # scaler = Normalizer()
-
-    new_dataset = pd.DataFrame(
-        scaler.fit_transform(new_dataset),
-        columns=columns,
-        index=new_dataset.index,
-    )
-
-    if pca:
-        new_dataset = pca_data_segmented(new_dataset)
-        new_dataset = new_dataset.fillna(0)
-
-    return new_dataset, labels
+    return new_dataset
 
 
 def load_data_new(
-    excel_path: str = "data/patient_new.xlsx", data_path=None, pca: bool = True
+    excel_path: str = "data/patient_new.xlsx", data_path=None, pca: bool = False
 ):
     if data_path is None:
         data_path = [
@@ -169,7 +143,7 @@ def load_data_new(
     data_0 = load_hu_data(data_path[0])
     data_1 = load_hu_data(data_path[1])
     data_2 = load_hu_data(data_path[2])
-
+    #
     dataset = pd.concat([data_0, data_1, data_2], axis=0)
     # remove name in hosp_ids
     old_index = dataset.index
@@ -182,24 +156,35 @@ def load_data_new(
     excel_data.index = new_excel_index
 
     dataset = pd.concat([excel_data, dataset], axis=1)
-    labels = pd.DataFrame(dataset.loc[:, ["HTf"]])
+    # new_dataset = excel_data
+    new_dataset = dataset
 
-    dataset.drop(["HTf"], axis=1, inplace=True)
-    columns = dataset.columns
+    return new_dataset
 
-    scaler = MinMaxScaler()
 
-    new_dataset = pd.DataFrame(
-        scaler.fit_transform(dataset),
-        columns=columns,
-        index=dataset.index,
-    )
+def load_data_1024(
+    excel_path: str = "data/patient_1024.xlsx",
+    data_path: str = "result_data/HU_1024.xlsx",
+):
+    excel_data = load_excel_data(excel_path)
 
-    if pca:
-        new_dataset = pca_data_segmented(new_dataset)
-        new_dataset = new_dataset.fillna(0)
+    hu_data = load_hu_data(data_path)
 
-    return new_dataset, labels
+    old_index = hu_data.index
+    new_index = list(map(lambda x: x.split()[0], old_index))
+    hu_data.index = new_index
+
+    excel_index = excel_data.index
+    new_excel_index = list(map(lambda x: "0" * (9 - len(x)) + x, excel_index))
+    excel_data.index = new_excel_index
+
+    dataset = pd.concat([excel_data, hu_data], axis=1)
+    # dataset = excel_data
+    dataset = dataset.dropna(axis=0)
+
+    new_dataset = dataset
+
+    return new_dataset
 
 
 def load_data_philips(
@@ -240,6 +225,63 @@ def load_data_philips(
         new_dataset = new_dataset.fillna(0)
 
     return new_dataset, labels
+
+
+def load_total_data():
+    data_1 = load_data()
+    data_2 = load_data_new()
+    data_3 = load_data_1024()
+
+    dataset = pd.concat([data_1, data_2, data_3], axis=0)
+    dataset = dataset.dropna(axis=0)
+    le = LabelEncoder()
+    new = le.fit_transform(dataset.iloc[:, 0])
+    dataset.iloc[:, 0] = new
+
+    scaler = MinMaxScaler()
+
+    is_philips = dataset["manufacturer"] == 1
+    is_siemens = dataset["manufacturer"] == 2
+
+    philips_dataset = dataset[is_philips]
+    siemens_dataset = dataset[is_siemens]
+
+    philips_label = pd.DataFrame(philips_dataset.loc[:, ["HTf"]])
+    siemens_label = pd.DataFrame(siemens_dataset.loc[:, ["HTf"]])
+    total_labels = pd.DataFrame(dataset.loc[:, ["HTf"]])
+
+    dataset.drop(["HTf", "manufacturer"], axis=1, inplace=True)
+    philips_dataset.drop(["HTf", "manufacturer"], axis=1, inplace=True)
+    siemens_dataset.drop(["HTf", "manufacturer"], axis=1, inplace=True)
+
+    columns = dataset.columns
+
+    total_dataset = pd.DataFrame(
+        scaler.fit_transform(dataset),
+        columns=columns,
+        index=dataset.index,
+    )
+
+    philips_dataset = pd.DataFrame(
+        scaler.fit_transform(philips_dataset),
+        columns=columns,
+        index=philips_dataset.index,
+    )
+
+    siemens_dataset = pd.DataFrame(
+        scaler.fit_transform(siemens_dataset),
+        columns=columns,
+        index=siemens_dataset.index,
+    )
+
+    return (
+        total_dataset,
+        total_labels,
+        philips_dataset,
+        philips_label,
+        siemens_dataset,
+        siemens_label,
+    )
 
 
 def hu_distribution():
@@ -364,13 +406,11 @@ def t_test():
 if __name__ == "__main__":
     # t_test()
     # hu_distribution()
-    data, label = load_data(pca=True)
-    data_new, label_new = load_data_new(pca=True)
+    # data, label = load_data(pca=True)
+    # data_new, label_new = load_data_new(pca=True)
+    s = load_total_data()
 
-    data_total = pd.concat([data, data_new], axis=0)
+    # data_total = pd.concat([data, data_new], axis=0)
     # print(np.where(label == np.inf))
     # print(np.where(np.isnan(data)))
     # print(np.all(np.isfinite(data)))
-
-    print(data)
-    print(label)

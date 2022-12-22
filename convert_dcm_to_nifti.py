@@ -12,17 +12,19 @@ from tqdm import tqdm
 if __name__ == "__main__":
     dir = os.path.dirname(os.path.realpath("__file__"))
     data_dir = os.path.join(dir, "data")
-    dcm_info = os.path.join(dir, "data", "patient.xlsx")
-    save_path = os.path.join(dir, "nifti/")
+    # dcm_info = os.path.join(dir, "data", "patient.xlsx")
+    # dcm_info = os.path.join(data_dir, "patient_1024.xlsx")
+    # save_path = os.path.join(dir, "nifti/")
+    save_path = os.path.join(dir, "nifti_1024/")
 
-    dcm_info = pd.read_excel(dcm_info)
-    dcm_info = np.array(dcm_info)
+    # dcm_info = pd.read_excel(dcm_info)
+    # dcm_info = np.array(dcm_info)
 
     data_sets = glob.glob(data_dir + "/*/*")
 
     hosp_ids = []
 
-    dicom_dir = os.path.join(data_dir, "Dicom_files")
+    dicom_dir = os.path.join(data_dir, "Dicom_1024")
     patient_folders = os.listdir(dicom_dir)
 
     settings.disable_validate_orthogonal()

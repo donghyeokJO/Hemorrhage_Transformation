@@ -10,7 +10,7 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.feature_selection import RFE
 from sklearn.metrics import accuracy_score, roc_curve, auc
 from catboost import CatBoostClassifier
-from data_load import load_data, load_data_new, load_data_philips
+from data_load import load_total_data
 from utils import *
 
 
@@ -21,14 +21,19 @@ class CatBoost:
     kfold: StratifiedKFold
 
     def __init__(self, pca: bool):
-        self.data, self.label = load_data(pca=pca)
-        self.data_new, self.label_new = load_data_new(pca=pca)
-        self.data_philips, self.label_philips = load_data_philips(pca=pca)
-
-        self.total_data = pd.concat([self.data, self.data_new], axis=0)
-        self.total_label = pd.concat([self.label, self.label_new], axis=0)
+        (
+            self.total_data,
+            self.total_label,
+            self.philips_data,
+            self.philips_label,
+            self.siemens_data,
+            self.siemens_label,
+        ) = load_total_data()
 
         self.save_path = "cat_total_train_pca.pkl" if pca else "cat_total_train.pkl"
+        # self.save_path = (
+        #     "cat_total_train_pca_added.pkl" if pca else "cat_total_train_added.pkl"
+        # )
 
         self.save_path_siemens = (
             "cat_siemens_total_train_pca.pkl" if pca else "cat_siemens_total_train.pkl"
@@ -192,56 +197,6 @@ class CatBoost:
         plt.title("Feature Importance - CatBoost")
         plt.show()
 
-    def test(self):
-        print("********** Test Phase **********")
-        if self.pca:
-            with open("model_catboost_pca.txt", "rb") as f:
-                model = pickle.load(f).get("model")
-
-        else:
-            with open("model_catboost.txt", "rb") as f:
-                model = pickle.load(f).get("model")
-
-        test_data, test_label = load_data_new(pca=self.pca)
-        predict_ = model.predict(test_data)
-        accuracy = np.round(accuracy_score(test_label, predict_), 4)
-        print(f"정확도: {accuracy}")
-
-        pred_proba = model.predict_proba(test_data)[:, 1]
-
-        fper, tper, threshold = roc_curve(test_label.values.ravel(), pred_proba)
-
-        auc_score = auc(fper, tper)
-
-        print(f"평균 AUC : {auc_score}")
-
-    def total_train(self):
-        test_data, test_label = load_data_new(pca=self.pca)
-
-        self.model.fit(self.data, self.label)
-
-        train_pred = self.model.predict(self.data)
-        train_pred_proba = self.model.predict_proba(self.data)[:, 1]
-
-        train_accuracy = np.round(accuracy_score(self.label, train_pred), 4)
-        print(f"학습 정확도: {train_accuracy}")
-
-        fper, tper, threshold = roc_curve(self.label.values.ravel(), train_pred_proba)
-        auc_score = auc(fper, tper)
-        print(f"학습 mAUC: {auc_score}")
-
-        predict_ = self.model.predict(test_data)
-        accuracy = np.round(accuracy_score(test_label, predict_), 4)
-        print(f"정확도: {accuracy}")
-
-        pred_proba = self.model.predict_proba(test_data)[:, 1]
-
-        fper, tper, threshold = roc_curve(test_label.values.ravel(), pred_proba)
-
-        auc_score = auc(fper, tper)
-
-        print(f"mAUC: {auc_score}")
-
     def feature_selection(self):
         model = CatBoostClassifier()
         rfe = RFE(model, n_features_to_select=10, verbose=False)
@@ -252,12 +207,6 @@ class CatBoost:
         ]
 
     def total_train_fold(self):
-        # total_data, total_label = self.total_data, self.total_label
-        # total_data, total_label = (
-        #     self.total_data.loc[:, self.data.columns.isin(self.selected_columns)],
-        #     self.total_label,
-        # )
-
         train_data, test_data, train_label, test_label = train_test_split(
             self.total_data, self.total_label, test_size=0.1, random_state=42
         )
@@ -285,8 +234,10 @@ class CatBoost:
         fper, tper, threshold = roc_curve(test_label.values.ravel(), pred_proba)
         auc_score = auc(fper, tper)
 
-        print(f"정확도: {accuracy}")
-        print(f"mAUC: {auc_score}")
+        print(f"테스트 정확도: {accuracy}")
+        print(f"테스트 mAUC: {auc_score}")
+        with open("cat_total.pkl", "wb") as f:
+            pickle.dump({"acc": accuracy, "mauc": auc_score}, f)
 
     def test_total(self):
         fig = plt.figure(figsize=[12, 12])
@@ -380,7 +331,7 @@ class CatBoost:
 
     def train_siemens(self):
         train_data, test_data, train_label, test_label = train_test_split(
-            self.data, self.label, test_size=0.2, random_state=42
+            self.siemens_data, self.siemens_label, test_size=0.2, random_state=42
         )
 
         model = CatBoostClassifier
@@ -408,6 +359,8 @@ class CatBoost:
 
         print(f"정확도: {accuracy}")
         print(f"mAUC: {auc_score}")
+        with open("cat_siemens.pkl", "wb") as f:
+            pickle.dump({"acc": accuracy, "mauc": auc_score}, f)
 
     def siemens(self):
         n_iter = 0
@@ -425,10 +378,18 @@ class CatBoost:
         print(info.get("best_params_"))
         model = CatBoostClassifier(**info.get("best_params_"))
 
-        for train_idx, test_idx in self.kfold.split(self.data, self.label):
+        for train_idx, test_idx in self.kfold.split(
+            self.siemens_data, self.siemens_label
+        ):
             # print(train_idx, test_idx)
-            x_train, x_test = self.data.iloc[train_idx], self.data.iloc[test_idx]
-            y_train, y_test = self.label.iloc[train_idx], self.label.iloc[test_idx]
+            x_train, x_test = (
+                self.siemens_data.iloc[train_idx],
+                self.siemens_data.iloc[test_idx],
+            )
+            y_train, y_test = (
+                self.siemens_label.iloc[train_idx],
+                self.siemens_label.iloc[test_idx],
+            )
 
             model.fit(x_train, y_train, verbose=False)
 
@@ -437,7 +398,7 @@ class CatBoost:
             fold_pred_proba = model.predict_proba(x_test)[:, 1]
 
             fper, tper, threshold = roc_curve(
-                self.label.iloc[test_idx].values.ravel(), fold_pred_proba
+                self.siemens_label.iloc[test_idx].values.ravel(), fold_pred_proba
             )
             tpers.append(np.interp(mean_fpr, fper, tper))
             roc_auc = auc(fper, tper)
@@ -505,7 +466,7 @@ class CatBoost:
 
     def train_philips(self):
         train_data, test_data, train_label, test_label = train_test_split(
-            self.data_philips, self.label_philips, test_size=0.2, random_state=42
+            self.philips_data, self.philips_label, test_size=0.2, random_state=42
         )
 
         model = CatBoostClassifier
@@ -533,6 +494,8 @@ class CatBoost:
 
         print(f"정확도: {accuracy}")
         print(f"mAUC: {auc_score}")
+        with open("cat_philips.pkl", "wb") as f:
+            pickle.dump({"acc": accuracy, "mauc": auc_score}, f)
 
     def philips(self):
         n_iter = 0
@@ -551,11 +514,17 @@ class CatBoost:
         model = CatBoostClassifier(**info.get("best_params_"))
 
         for train_idx, test_idx in self.kfold.split(
-            self.data_philips, self.label_philips
+            self.philips_data, self.philips_label
         ):
             # print(train_idx, test_idx)
-            x_train, x_test = self.data.iloc[train_idx], self.data.iloc[test_idx]
-            y_train, y_test = self.label.iloc[train_idx], self.label.iloc[test_idx]
+            x_train, x_test = (
+                self.philips_data.iloc[train_idx],
+                self.philips_data.iloc[test_idx],
+            )
+            y_train, y_test = (
+                self.philips_label.iloc[train_idx],
+                self.philips_label.iloc[test_idx],
+            )
 
             model.fit(x_train, y_train, verbose=False)
 
@@ -564,7 +533,7 @@ class CatBoost:
             fold_pred_proba = model.predict_proba(x_test)[:, 1]
 
             fper, tper, threshold = roc_curve(
-                self.label_philips.iloc[test_idx].values.ravel(), fold_pred_proba
+                self.philips_label.iloc[test_idx].values.ravel(), fold_pred_proba
             )
             tpers.append(np.interp(mean_fpr, fper, tper))
             roc_auc = auc(fper, tper)
@@ -625,16 +594,16 @@ class CatBoost:
 warnings.filterwarnings("ignore")
 
 if __name__ == "__main__":
-    cat = CatBoost(pca=True)
-    # print("total")
-    # cat.total_train_fold()
-    # print("total_test")
-    # cat.test_total()
-    # print("siemens")
-    # cat.train_siemens()
+    cat = CatBoost(pca=False)
+    print("total")
+    cat.total_train_fold()
+    print("total_test")
+    cat.test_total()
+    print("siemens")
+    cat.train_siemens()
     print("siemens_test")
     cat.siemens()
-    # print("philips")
-    # cat.train_philips()
-    # print("philips_test")
-    # cat.philips()
+    print("philips")
+    cat.train_philips()
+    print("philips_test")
+    cat.philips()

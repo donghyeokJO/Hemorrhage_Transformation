@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score, roc_curve, auc
-from data_load import load_data, load_data_philips, load_data_new
+from data_load import load_data, load_data_philips, load_data_new, load_total_data
 from utils import *
 
 
@@ -20,12 +20,7 @@ class LogiReg:
     kfold: StratifiedKFold
 
     def __init__(self, pca):
-        self.data, self.label = load_data(pca=pca)
-        self.data_new, self.label_new = load_data_new(pca=pca)
-        self.data_philips, self.label_philips = load_data_philips(pca=pca)
-
-        self.total_data = pd.concat([self.data, self.data_new], axis=0)
-        self.total_label = pd.concat([self.label, self.label_new], axis=0)
+        self.total_data, self.total_label, self.philips_data, self.philips_label, self.siemens_data, self.siemens_label = load_total_data()
         self.pca = pca
 
         self.kfold = StratifiedKFold(n_splits=10)
@@ -166,7 +161,7 @@ class LogiReg:
 
     def train_siemens(self):
         train_data, test_data, train_label, test_label = train_test_split(
-            self.data, self.label, test_size=0.2, random_state=42
+            self.siemens_data, self.siemens_label, test_size=0.2, random_state=42
         )
 
         model = LogisticRegression
@@ -207,10 +202,10 @@ class LogiReg:
         print(info.get("best_params_"))
         model = LogisticRegression(**info.get("best_params_"))
 
-        for train_idx, test_idx in self.kfold.split(self.data, self.label):
+        for train_idx, test_idx in self.kfold.split(self.siemens_data, self.siemens_label):
             # print(train_idx, test_idx)
-            x_train, x_test = self.data.iloc[train_idx], self.data.iloc[test_idx]
-            y_train, y_test = self.label.iloc[train_idx], self.label.iloc[test_idx]
+            x_train, x_test = self.siemens_data.iloc[train_idx], self.siemens_data.iloc[test_idx]
+            y_train, y_test = self.siemens_label.iloc[train_idx], self.siemens_label.iloc[test_idx]
 
             model.fit(x_train, y_train)
 
@@ -219,7 +214,7 @@ class LogiReg:
             fold_pred_proba = model.predict_proba(x_test)[:, 1]
 
             fper, tper, threshold = roc_curve(
-                self.label.iloc[test_idx].values.ravel(), fold_pred_proba
+                self.siemens_label.iloc[test_idx].values.ravel(), fold_pred_proba
             )
             tpers.append(np.interp(mean_fpr, fper, tper))
             roc_auc = auc(fper, tper)
@@ -278,7 +273,7 @@ class LogiReg:
 
     def train_philips(self):
         train_data, test_data, train_label, test_label = train_test_split(
-            self.data_philips, self.label_philips, test_size=0.2, random_state=42
+            self.philips_data, self.philips_label, test_size=0.2, random_state=42
         )
 
         model = LogisticRegression
@@ -319,11 +314,11 @@ class LogiReg:
         model = LogisticRegression(**info.get("best_params_"))
 
         for train_idx, test_idx in self.kfold.split(
-            self.data_philips, self.label_philips
+            self.philips_data, self.philips_label
         ):
             # print(train_idx, test_idx)
-            x_train, x_test = self.data.iloc[train_idx], self.data.iloc[test_idx]
-            y_train, y_test = self.label.iloc[train_idx], self.label.iloc[test_idx]
+            x_train, x_test = self.philips_data.iloc[train_idx], self.philips_data.iloc[test_idx]
+            y_train, y_test = self.philips_label.iloc[train_idx], self.philips_label.iloc[test_idx]
 
             model.fit(x_train, y_train)
 
@@ -332,7 +327,7 @@ class LogiReg:
             fold_pred_proba = model.predict_proba(x_test)[:, 1]
 
             fper, tper, threshold = roc_curve(
-                self.label_philips.iloc[test_idx].values.ravel(), fold_pred_proba
+                self.philips_label.iloc[test_idx].values.ravel(), fold_pred_proba
             )
             tpers.append(np.interp(mean_fpr, fper, tper))
             roc_auc = auc(fper, tper)
@@ -393,16 +388,16 @@ class LogiReg:
 warnings.filterwarnings("ignore")
 
 if __name__ == "__main__":
-    cat = LogiReg(pca=True)
-    # print("total")
-    # cat.total_train_fold()
+    cat = LogiReg(pca=False)
+    print("total")
+    cat.total_train_fold()
     print("total_test")
     cat.test_total()
-    # print("siemens")
-    # cat.train_siemens()
+    print("siemens")
+    cat.train_siemens()
     print("siemens_test")
     cat.siemens()
-    # print("philips")
-    # cat.train_philips()
+    print("philips")
+    cat.train_philips()
     print("philips_test")
     cat.philips()
